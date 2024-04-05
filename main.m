@@ -1,5 +1,6 @@
 %% Folder definitions
 folder.code = 'C:\dev\workspaces';
+folder.python = "C:\Users\Sylvia\anaconda3\python.exe";
 
 %% Add paths
 addpath(genpath(fullfile(folder.code, 'roiClassGUI')))
@@ -9,7 +10,7 @@ classThresholds = [55 85];
 bloodThreshold = 20;
 
 %% Initialize python etc
-pyenv(Version="C:\Users\Sylvia\anaconda3\python.exe");
+pyenv(Version = folder.python);
 py.importlib.import_module('numpy');
 
 %% Load data
