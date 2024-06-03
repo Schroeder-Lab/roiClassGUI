@@ -1,6 +1,6 @@
 %% Folder definitions
-folder.code = 'C:\dev\workspaces';
-folder.python = "C:\Users\Sylvia\anaconda3\python.exe";
+folder.code = 'C:\Repositories\roiClassGUI';
+folder.python = "C:\Users\liad0\anaconda3\python.exe";
 
 %% Add paths
 addpath(genpath(fullfile(folder.code, 'roiClassGUI')))
@@ -8,14 +8,35 @@ addpath(genpath(fullfile(folder.code, 'roiClassGUI')))
 %% Parameters
 classThresholds = [55 85];
 bloodThreshold = 20;
+refineThreshold = 1;
+bloodSize = 2;
 
+if isfile('bloodTh.mat')
+    load('bloodTh.mat');  
+    bloodThreshold = bTh;
+end
+
+if isfile('classTh.mat')
+    load('classTh.mat');  
+    classThresholds = cTh;
+end
+
+if isfile('laplaceTh.mat')
+    load('laplaceTh.mat'); 
+    refineThreshold = rTh;
+end
+
+if isfile('bloodSize.mat')
+    load('bloodSize.mat');   
+    bloodSize = bs;
+end
 %% Initialize python etc
 pyenv(Version = folder.python);
 py.importlib.import_module('numpy');
 
 %% Load data
 ops = py.numpy.load('ops.npy', allow_pickle=true).item();
-ops = dictionary(ops);
+% ops = dictionary(ops);
 
 stat = py.numpy.load('stat.npy', allow_pickle=true);
 
@@ -23,13 +44,13 @@ iscell = double(py.numpy.load('iscell.npy', allow_pickle=true));
 isgood = find(iscell(:,1) == 1);
 
 %% Get necessary variables: image, ROI + neuropil masks
-meanImg = ops("meanImg_chan2");
-meanImg = double(meanImg{1});
+meanImg = ops{"meanImg_chan2"};
+meanImg = double(meanImg);
 
-Ly = ops("Ly");
-Ly = double(Ly{1});
-Lx = ops("Lx");
-Lx = double(Lx{1});
+Ly = ops{"Ly"};
+Ly = double(Ly);
+Lx = ops{"Lx"};
+Lx = double(Lx);
 
 ROIs = cell(length(isgood), 1);
 neuropils = cell(length(isgood), 1);
@@ -47,6 +68,8 @@ end
 
 opsGUI.classThresholds = classThresholds;
 opsGUI.bloodThreshold = bloodThreshold;
+opsGUI.refineThreshold = refineThreshold;
+opsGUI.bloodSize = bloodSize;
 opsGUI.xrange = 1:Lx;
 opsGUI.yrange = 1:Ly;
 

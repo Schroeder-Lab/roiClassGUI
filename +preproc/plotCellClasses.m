@@ -9,6 +9,9 @@ end
 if ~isfield(ops, 'bloodThreshold')
     ops.bloodThreshold = 0; % 0-100% maximum pixel value to count as blood vessel
 end
+if ~isfield(ops, 'refineThreshold')
+    ops.refineThreshold = 1; % 0-100% maximum pixel value to count as blood vessel
+end
 if ~isfield(ops, 'bloodSize')
     ops.bloodSize = 0; % 0-100%; minimum size to count as blood vessel
 end
@@ -22,10 +25,33 @@ ci = round(ci ./ max(ci(:)) .* 255 + 1);
 ci = ind2rgb(ci, hot(256));
 
 bloodThresh = prctile(classImage(:), ops.bloodThreshold);
+
+maxVal = max(max(classImage));
+minVal = min(min(classImage));
+ciFilNorm = single((classImage-minVal)/maxVal);
+% ciFilNorm = uint16(round(ciFilNorm ./ max(ciFilNorm(:)) .* 255 + 1));
+ciFilNorm = imadjust(ciFilNorm);
+ciFilNorm = locallapfilt(ciFilNorm,1,ops.refineThreshold,2);
+
+
+
+refineThresh = prctile(ciFilNorm(:), ops.bloodThreshold);
 bloodMask = classImage <= bloodThresh;
+refineMask = ciFilNorm <= refineThresh;
+
+% refineMask = bwareafilt(refineMask, round([numel(ci) * ...
+%     ops.bloodSize / 100, numel(ci)]));
+
 bloodMask = bwareafilt(bloodMask, round([numel(classImage) * ops.bloodSize / 100, ...
     numel(classImage)]));
-bloodMask = double(bwmorph(bloodMask, 'close'));
+
+bloodMask = double(bwmorph(bloodMask|refineMask, 'close'));
+
+% bloodMask = bwareafilt(bloodMask, round([numel(classImage) * ops.bloodSize / 100, ...
+%     numel(classImage)]));
+% bloodMask = double(bwmorph(bloodMask, 'close'));
+
+
 
 axes(ax);
 imshow(ci)
