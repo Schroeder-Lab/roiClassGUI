@@ -1,6 +1,8 @@
 %% Folder definitions
-folder.code = 'C:\Repositories\roiClassGUI';
-folder.python = "C:\Users\liad0\anaconda3\python.exe";
+% folder.code = 'C:\Repositories\roiClassGUI';
+% folder.python = "C:\Users\liad0\anaconda3\python.exe";
+folder.code = 'C:\dev\workspaces';
+folder.python = "C:\Users\Sylvia\anaconda3\python.exe";
 
 %% Add paths
 addpath(genpath(fullfile(folder.code, 'roiClassGUI')))
@@ -11,25 +13,14 @@ bloodThreshold = 20;
 refineThreshold = 1;
 bloodSize = 2;
 
-if isfile('bloodTh.mat')
-    load('bloodTh.mat');  
-    bloodThreshold = bTh;
+if isfile('cellTypes.mat')
+    data = load('cellTypes.mat');  
+    bloodThreshold = data.bTh;  
+    classThresholds = data.cTh; 
+    refineThreshold = data.rTh;   
+    bloodSize = data.bs;
 end
 
-if isfile('classTh.mat')
-    load('classTh.mat');  
-    classThresholds = cTh;
-end
-
-if isfile('laplaceTh.mat')
-    load('laplaceTh.mat'); 
-    refineThreshold = rTh;
-end
-
-if isfile('bloodSize.mat')
-    load('bloodSize.mat');   
-    bloodSize = bs;
-end
 %% Initialize python etc
 pyenv(Version = folder.python);
 py.importlib.import_module('numpy');
@@ -63,7 +54,9 @@ for k = 1:length(ROIs)
     ROIs{k} = sub2ind([Ly Lx], ypix, xpix)';
 
     str = sprintf("npix = s[%d]['neuropil_mask']", id);
-    neuropils{k} = double(pyrun(str, "npix", s = stat));
+    npix = double(pyrun(str, "npix", s = stat));
+    [nx, ny] = ind2sub([Lx Ly], npix);
+    neuropils{k} = sub2ind([Ly Lx], ny, nx);
 end
 
 opsGUI.classThresholds = classThresholds;

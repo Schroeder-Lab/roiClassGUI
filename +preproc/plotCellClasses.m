@@ -24,41 +24,15 @@ ci = classImage - min(classImage(:));
 ci = round(ci ./ max(ci(:)) .* 255 + 1);
 ci = ind2rgb(ci, hot(256));
 
-bloodThresh = prctile(classImage(:), ops.bloodThreshold);
-
-maxVal = max(max(classImage));
-minVal = min(min(classImage));
-ciFilNorm = single((classImage-minVal)/maxVal);
-% ciFilNorm = uint16(round(ciFilNorm ./ max(ciFilNorm(:)) .* 255 + 1));
-ciFilNorm = imadjust(ciFilNorm);
-ciFilNorm = locallapfilt(ciFilNorm,1,ops.refineThreshold,2);
-
-
-
-refineThresh = prctile(ciFilNorm(:), ops.bloodThreshold);
-bloodMask = classImage <= bloodThresh;
-refineMask = ciFilNorm <= refineThresh;
-
-% refineMask = bwareafilt(refineMask, round([numel(ci) * ...
-%     ops.bloodSize / 100, numel(ci)]));
-
-bloodMask = bwareafilt(bloodMask, round([numel(classImage) * ops.bloodSize / 100, ...
-    numel(classImage)]));
-
-bloodMask = double(bwmorph(bloodMask|refineMask, 'close'));
-
-% bloodMask = bwareafilt(bloodMask, round([numel(classImage) * ops.bloodSize / 100, ...
-%     numel(classImage)]));
-% bloodMask = double(bwmorph(bloodMask, 'close'));
-
-
+bloodMask = preproc.getBloodMask(classImage, ops.bloodThreshold, ...
+    ops.bloodSize, ops.refineThreshold);
 
 axes(ax);
 imshow(ci)
 hold on
 blood = ones(size(ci(:,:,1)));
 bloodHandle = imshow(blood, ones(1,3)*0.5);
-alpha(bloodHandle, bloodMask);
+alpha(bloodHandle, single(~bloodMask));
 
 lines = NaN(1, length(ROIs));
 if ~all(isnan(classes))

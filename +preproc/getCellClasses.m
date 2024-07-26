@@ -17,14 +17,10 @@ if ~isfield(ops, 'bloodSize')
     ops.bloodSize = 0; % 0-100%; minimum size to count as blood vessel
 end
 
-bloodThresh = prctile(classImage(:), ops.bloodThreshold);
-bloodInd = classImage <= bloodThresh;
-bloodInd = bwareafilt(bloodInd, round([numel(classImage) * ops.bloodSize / 100, ...
-    numel(classImage)]));
-bloodMask = ~bwmorph(bloodInd, 'close');
+bloodMask = preproc.getBloodMask(classImage, ops.bloodThreshold, ...
+    ops.bloodSize, ops.refineThreshold);
 bloodMask = find(bloodMask);
 
-% xVals = linspace(min(classImage(:)), max(classImage(:)), 100);
 for iCell = 1:length(ROIs)
     cellValues(iCell) = median(classImage(ROIs{iCell}));
     surrVals = classImage(intersect(neuropils{iCell}, bloodMask));

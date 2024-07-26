@@ -148,7 +148,7 @@ if val == 0
     alpha(handles.bloodHandle, 0);
 else
     set(handles.lineHandles, 'Visible', 'on');
-    alpha(handles.bloodHandle, handles.bloodMask);
+    alpha(handles.bloodHandle, single(~handles.bloodMask));
 end
 
 
@@ -163,11 +163,8 @@ rTh = handles.ops.refineThreshold;
 bs = handles.ops.bloodSize;
 cClasses = handles.cellClasses;
 
-save("bloodTh.mat","bTh");
-save("classTh.mat","cTh");
-save("laplaceTh.mat","rTh");
-save("bloodSize.mat","bs");
-save("cellClasses.mat","cClasses");
+save('cellTypes.mat', "bTh", "cTh", "rTh", "bs", "cClasses");
+
 close(handles.figure1);
 
 
@@ -279,39 +276,9 @@ function sliderBloodThresh_Callback(hObject, eventdata, handles)
 val = hObject.Value;
 handles.ops.bloodThreshold = val;
 ci = handles.classImage;
-% ci = imadjust(ci);
-bloodThresh = prctile(ci(:), val);
-bloodMask = ci <= bloodThresh;
-bloodMask = bwareafilt(bloodMask, round([numel(ci) * ...
-    handles.ops.bloodSize / 100, numel(ci)]));
 
-
-
-maxVal = max(max(ci));
-minVal = min(min(ci));
-ciFilNorm = single((ci-minVal)/maxVal);
-ciFilNorm = imadjust(ciFilNorm);
-ciFilNorm = locallapfilt(ciFilNorm,1,handles.ops.refineThreshold,1);
-refineThresh = prctile(ciFilNorm(:), handles.ops.bloodThreshold);
-refineMask = ciFilNorm <= refineThresh;
-bloodMask = bloodMask|refineMask;
-
-bloodMask = find(~bwmorph(bloodMask, 'close'));
-cellValues = handles.cellValues;
-cellClasses = NaN(length(handles.ROIs),1);
-surrPrctiles = NaN(length(handles.ROIs),100);
-for iCell = 1:length(handles.ROIs)
-    surrVals = ci(intersect(handles.neuropils{iCell}, bloodMask));
-    threshs = prctile(surrVals, handles.ops.classThresholds);
-    surrPrctiles(iCell,:) = prctile(surrVals, 1:100);
-    if cellValues(iCell) <= threshs(1)
-        cellClasses(iCell) = -1;
-    elseif cellValues(iCell) >= threshs(2)
-        cellClasses(iCell) = 1;
-    else
-        cellClasses(iCell) = 0;
-    end
-end
+[cellClasses, cellValues, surrPrctiles] = preproc.getCellClasses(ci, ...
+    handles.ROIs, handles.neuropils, handles.ops);
 handles.cellClasses = cellClasses;
 handles.surrPrctiles = surrPrctiles;
 
@@ -347,35 +314,9 @@ function sliderBloodSize_Callback(hObject, eventdata, handles)
 val = hObject.Value;
 handles.ops.bloodSize = val;
 ci = handles.classImage;
-bloodMask = handles.bloodMask == 1;
-bloodMask = bwareafilt(bloodMask, round([numel(ci) * val / 100, numel(ci)]));
 
-maxVal = max(max(ci));
-minVal = min(min(ci));
-ciFilNorm = single((ci-minVal)/maxVal);
-ciFilNorm = imadjust(ciFilNorm);
-ciFilNorm = locallapfilt(ciFilNorm,1,handles.ops.refineThreshold,1);
-
-refineThresh = prctile(ciFilNorm(:), handles.ops.bloodThreshold);
-refineMask = ciFilNorm <= refineThresh;
-bloodMask = bloodMask|refineMask;
-
-bloodMask = find(~bwmorph(bloodMask, 'close'));
-cellValues = handles.cellValues;
-cellClasses = NaN(length(handles.ROIs),1);
-surrPrctiles = NaN(length(handles.ROIs),100);
-for iCell = 1:length(handles.ROIs)
-    surrVals = ci(intersect(handles.neuropils{iCell}, bloodMask));
-    threshs = prctile(surrVals, handles.ops.classThresholds);
-    surrPrctiles(iCell,:) = prctile(surrVals, 1:100);
-    if cellValues(iCell) <= threshs(1)
-        cellClasses(iCell) = -1;
-    elseif cellValues(iCell) >= threshs(2)
-        cellClasses(iCell) = 1;
-    else
-        cellClasses(iCell) = 0;
-    end
-end
+[cellClasses, cellValues, surrPrctiles] = preproc.getCellClasses(ci, ...
+    handles.ROIs, handles.neuropils, handles.ops);
 handles.cellClasses = cellClasses;
 handles.surrPrctiles = surrPrctiles;
 
@@ -401,6 +342,7 @@ if isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColo
     set(hObject,'BackgroundColor',[.9 .9 .9]);
 end
 
+
 % --- Executes when user attempts to close figure1.
 function figure1_CloseRequestFcn(hObject, eventdata, handles)
 % hObject    handle to figure1 (see GCBO)
@@ -409,6 +351,7 @@ function figure1_CloseRequestFcn(hObject, eventdata, handles)
 
 uiresume(hObject);
 
+
 function cellClasses = updateClasses(cellValues, surrPrctiles, thresholds)
 negThreshs = surrPrctiles(:,round(thresholds(1)));
 posThreshs = surrPrctiles(:,round(thresholds(2)));
@@ -416,6 +359,7 @@ cellClasses = NaN(length(cellValues),1);
 cellClasses(cellValues <= negThreshs) = -1;
 cellClasses(cellValues >= posThreshs) = 1;
 cellClasses(cellValues > negThreshs & cellValues < posThreshs) = 0;
+
 
 function threshHandles = plotClassHistogram(cellValues, surrPrctiles, ...
     classThresholds, colors, ax)
@@ -445,71 +389,12 @@ function refineSlider_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hints: get(hObject,'Value') returns position of slider
-%        get(hObject,'Min') and get(hObject,'Max') to determine range of slider
-
 val = hObject.Value;
 handles.ops.refineThreshold = val;
-bloodVal = handles.ops.bloodThreshold;
 ci = handles.classImage;
-% ci = imadjust(ci);
-bloodThresh = prctile(ci(:), bloodVal);
-bloodMask = ci <= bloodThresh;
-ciFilt = ci;
-ciFilt(bloodMask) = 0;
-maxVal = max(max(ci));
-minVal = min(min(ci));
-ciFilNorm = single((ci-minVal)/maxVal);
-% ciFilNorm = uint16(round(ciFilNorm ./ max(ciFilNorm(:)) .* 255 + 1));
-ciFilNorm = imadjust(ciFilNorm);
-ciFilNorm = locallapfilt(ciFilNorm,1,val,1);
-% bloodThNorm = (bloodThresh-minVal)/maxVal;
-% ciFilNormAdjust = imadjust(ciFilNorm,[bloodThNorm 1],[0 1]);
-% ciFilNormAdjust = ciFilNormAdjust*maxVal+minVal;
-% ciFilNormAdjust(bloodMask) = 0;
-% ciFilNormAdjust = ci-bloodThresh;
-% maxVal = max(max(ciFilNormAdjust));
-% minVal = min(min(ciFilNormAdjust));
-% % % ciFilNormAdjust =(ciFilNormAdjust-minVal)/maxVal;
-% % ciFilNormAdjust = imgaussfilt(ci,64,'FilterSize',11,'FilterDomain','frequency');
-% refineThresh = prctile(ciFilNormAdjust(:), val);
-refineThresh = prctile(ciFilNorm(:), handles.ops.bloodThreshold);
-refineMask = ciFilNorm <= refineThresh;
-% refineMask = bwareafilt(refineMask, round([numel(ci) * ...
-%     handles.ops.bloodSize / 100, numel(ci)]));
-bloodMask = bwareafilt(bloodMask, round([numel(ci) * ...
-    handles.ops.bloodSize / 100, numel(ci)]));
 
-
-totalMask = bloodMask|refineMask;
-
-totalMask = find(~bwmorph(totalMask, 'close'));
-
-cellValues = handles.cellValues;
-cellClasses = NaN(length(handles.ROIs),1);
-surrPrctiles = NaN(length(handles.ROIs),100);
-
-
-
-% 
-% bloodMask = bwareafilt(bloodMask, round([numel(ci) * ...
-%     handles.ops.bloodSize / 100, numel(ci)]));
-% bloodMask = find(~bwmorph(bloodMask, 'close'));
-cellValues = handles.cellValues;
-cellClasses = NaN(length(handles.ROIs),1);
-surrPrctiles = NaN(length(handles.ROIs),100);
-for iCell = 1:length(handles.ROIs)
-    surrVals = ci(intersect(handles.neuropils{iCell}, totalMask));
-    threshs = prctile(surrVals, handles.ops.classThresholds);
-    surrPrctiles(iCell,:) = prctile(surrVals, 1:100);
-    if cellValues(iCell) <= threshs(1)
-        cellClasses(iCell) = -1;
-    elseif cellValues(iCell) >= threshs(2)
-        cellClasses(iCell) = 1;
-    else
-        cellClasses(iCell) = 0;
-    end
-end
+[cellClasses, cellValues, surrPrctiles] = preproc.getCellClasses(ci, ...
+    handles.ROIs, handles.neuropils, handles.ops);
 handles.cellClasses = cellClasses;
 handles.surrPrctiles = surrPrctiles;
 
@@ -524,7 +409,6 @@ handles.threshHandles = threshHandles;
 guidata(hObject, handles);
 
 
-
 % --- Executes during object creation, after setting all properties.
 function refineSlider_CreateFcn(hObject, eventdata, handles)
 % hObject    handle to refineSlider (see GCBO)
@@ -535,12 +419,3 @@ function refineSlider_CreateFcn(hObject, eventdata, handles)
 if isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor',[.9 .9 .9]);
 end
-
-
-% --- If Enable == 'on', executes on mouse press in 5 pixel border.
-% --- Otherwise, executes on mouse press in 5 pixel border or over buttonDone.
-function buttonDone_ButtonDownFcn(hObject, eventdata, handles)
-% hObject    handle to buttonDone (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-1==1;
