@@ -8,10 +8,13 @@ folder.python = "C:\Users\Sylvia\anaconda3\python.exe";
 addpath(genpath(fullfile(folder.code, 'roiClassGUI')))
 
 %% Parameters
-classThresholds = [55 85];
-bloodThreshold = 20;
-refineThreshold = 1;
-bloodSize = 2;
+classThresholds = [55 85]; % thresholds for positive and negative ROIs 
+                           % (in percentiles)
+bloodThreshold = 20; % threshold below which pixels are considered background 
+                     % (not considered for surround calculation)
+                     % (in percentiles)
+refineThreshold = 0.2; % spatial parameter for local Laplacian filtering (local contrast)
+bloodSize = 0.03;    % minimum size of background areas (in percent of all pixels)
 
 if isfile('cellTypes.mat')
     data = load('cellTypes.mat');  
@@ -26,23 +29,31 @@ pyenv(Version = folder.python);
 py.importlib.import_module('numpy');
 
 %% Load data
-ops = py.numpy.load('ops.npy', allow_pickle=true).item();
-% ops = dictionary(ops);
+try
+    ops = py.numpy.load('ops.npy', allow_pickle=true).item();
+catch
+    warning('Current folder does NOT contain suite2p output files.')
+    return
+end
 
 stat = py.numpy.load('stat.npy', allow_pickle=true);
 
 iscell = double(py.numpy.load('iscell.npy', allow_pickle=true));
+% only consider 
 isgood = find(iscell(:,1) == 1);
 
 %% Get necessary variables: image, ROI + neuropil masks
+% mean image of red imaging channel
 meanImg = ops{"meanImg_chan2"};
 meanImg = double(meanImg);
 
+% size of mean image (in pixels)
 Ly = ops{"Ly"};
 Ly = double(Ly);
 Lx = ops{"Lx"};
 Lx = double(Lx);
 
+% get pixel locations of ROI masks and corresponding neuropil masks
 ROIs = cell(length(isgood), 1);
 neuropils = cell(length(isgood), 1);
 for k = 1:length(ROIs)
@@ -66,8 +77,5 @@ opsGUI.bloodSize = bloodSize;
 opsGUI.xrange = 1:Lx;
 opsGUI.yrange = 1:Ly;
 
+% call GUI
 [classes, opsDetect] = classifyCells(meanImg, ROIs, neuropils, opsGUI);
-isInhibitory = NaN(size(iscell,1),1);
-isInibitory(isgood) = classes;
-
-% save isInhibitory & opsDetect (as python dictionary)
