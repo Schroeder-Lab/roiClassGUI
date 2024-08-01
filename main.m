@@ -2,7 +2,7 @@
 % folder.code = 'C:\Repositories\roiClassGUI';
 % folder.python = "C:\Users\liad0\anaconda3\python.exe";
 folder.code = 'C:\dev\workspaces';
-folder.python = "C:\Users\Sylvia\anaconda3\python.exe";
+folder.python = "C:\Users\liad0\anaconda3\python.exe";
 
 %% Add paths
 addpath(genpath(fullfile(folder.code, 'roiClassGUI')))
@@ -46,6 +46,7 @@ isgood = find(iscell(:,1) == 1);
 % mean image of red imaging channel
 meanImg = ops{"meanImg_chan2"};
 meanImg = double(meanImg);
+meanImg = meanImg - min(meanImg);
 
 % size of mean image (in pixels)
 Ly = ops{"Ly"};
