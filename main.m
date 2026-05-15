@@ -1,8 +1,8 @@
 %% Folder definitions
 % folder.code = 'C:\Repositories\roiClassGUI';
 % folder.python = "C:\Users\liad0\anaconda3\python.exe";
-folder.code = 'C:\dev\workspaces';
-folder.python = "C:\Users\liad0\anaconda3\python.exe";
+folder.code = 'C:\dev\workspaces\SchroederLab';
+% folder.python = "C:\Users\liad0\anaconda3\python.exe";
 
 %% Add paths
 addpath(genpath(fullfile(folder.code, 'roiClassGUI')))
@@ -25,7 +25,7 @@ if isfile('cellTypes.mat')
 end
 
 %% Initialize python etc
-pyenv(Version = folder.python);
+% pyenv(Version = folder.python);
 py.importlib.import_module('numpy');
 
 %% Load data
@@ -80,3 +80,6 @@ opsGUI.yrange = 1:Ly;
 
 % call GUI
 [classes, opsDetect] = classifyCells(meanImg, ROIs, neuropils, opsGUI);
+
+% save cell classes as .npy
+py.numpy.save('2pRois.isInhibitory.npy', classes)
