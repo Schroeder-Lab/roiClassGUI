@@ -25,13 +25,48 @@ if isfile('cellTypes.mat')
 end
 
 %% Initialize python etc
+% Put your repo root first so package import resolves correctly
+pyrun("import sys; p=r'C:\dev\workspaces\SchroederLab\suite2p_v1'; sys.path=[x for x in sys.path if x!=p]; sys.path.insert(0,p)");
+
+% Clear previously loaded suite2p modules from cache
+pyrun("import sys; [sys.modules.pop(k) for k in list(sys.modules) if k=='suite2p' or k.startswith('suite2p.')]");
+
+% Verify this now works
+pyrun("import importlib; m=importlib.import_module('suite2p.extraction.masks'); print(m.__file__)");
+
 % pyenv(Version = folder.python);
 py.importlib.import_module('numpy');
 
 %% Load data
-try
-    ops = py.numpy.load('ops.npy', allow_pickle=true).item();
-catch
+nmasks = pyrunfile( ...
+    "C:\dev\workspaces\SchroederLab\depth-for-2p\scratch_files\neuropil_masks_wrapper.py", ...
+    "masks", folder=pwd);
+% nmasks is a py.list of numpy arrays
+n = int64(py.len(nmasks));
+npixels = cell(n, 1);
+for i = 1:n
+    npixels{i} = double(nmasks{i});  % or int64() if indices
+end
+
+ops_file = 'ops.npy';
+db_file = 'db.npy';
+if isfile(ops_file)
+    hasOps = true;
+    ops = py.numpy.load(ops_file, allow_pickle=true).item();
+    meanImg = ops{"meanImg_chan2"};
+    meanImg = double(meanImg);
+    Ly = ops{"Ly"};
+    Ly = double(Ly);
+    Lx = ops{"Lx"};
+    Lx = double(Lx);
+elseif isfile(db_file)
+    hasOps = false;
+    db = py.numpy.load(db_file, allow_pickle=true).item();
+    reg_outputs = py.numpy.load('reg_outputs.npy', allow_pickle=true).item();
+    meanImg = double(reg_outputs{'meanImg_chan2'});
+    Lx = double(db{'Lx'});
+    Ly = double(db{'Ly'});
+else
     warning('Current folder does NOT contain suite2p output files.')
     return
 end
@@ -44,15 +79,7 @@ isgood = find(iscell(:,1) == 1);
 
 %% Get necessary variables: image, ROI + neuropil masks
 % mean image of red imaging channel
-meanImg = ops{"meanImg_chan2"};
-meanImg = double(meanImg);
 meanImg = meanImg - min(meanImg);
-
-% size of mean image (in pixels)
-Ly = ops{"Ly"};
-Ly = double(Ly);
-Lx = ops{"Lx"};
-Lx = double(Lx);
 
 % get pixel locations of ROI masks and corresponding neuropil masks
 ROIs = cell(length(isgood), 1);
@@ -64,9 +91,13 @@ for k = 1:length(ROIs)
     str = sprintf("xpix = s[%d]['xpix'][~s[%d]['overlap']]", id, id);
     xpix = double(pyrun(str, "xpix", s = stat));
     ROIs{k} = sub2ind([Ly Lx], ypix, xpix)';
-
-    str = sprintf("npix = s[%d]['neuropil_mask']", id);
-    npix = double(pyrun(str, "npix", s = stat));
+    
+    if hasOps
+        str = sprintf("npix = s[%d]['neuropil_mask']", id);
+        npix = double(pyrun(str, "npix", s = stat));
+    else
+        npix = npixels{k};
+    end
     [nx, ny] = ind2sub([Lx Ly], npix);
     neuropils{k} = sub2ind([Ly Lx], ny, nx);
 end
